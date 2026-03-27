@@ -1,3 +1,4 @@
-rembg
-pillow
-numpy
+torch
+torchvision
+matplotlib
+scikit-learn
