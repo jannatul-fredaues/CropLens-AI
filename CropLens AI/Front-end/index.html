@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CropLens — AI Plant Identifier</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --green-deep: #1a3d2b;
+    --green-mid: #2d6a4f;
+    --green-light: #52b788;
+    --green-pale: #d8f3dc;
+    --amber: #e9c46a;
+    --amber-dark: #c77d23;
+    --cream: #faf7f0;
+    --brown: #5c3d2e;
+    --text-dark: #1a1a1a;
+    --text-muted: #6b7280;
+    --white: #ffffff;
+    --card-bg: rgba(255,255,255,0.92);
+    --shadow: 0 8px 32px rgba(26,61,43,0.13);
+    --radius: 18px;
+    --radius-sm: 10px;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--green-deep);
+    min-height: 100vh;
+    color: var(--text-dark);
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 10%, rgba(82,183,136,0.18) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 80% at 85% 90%, rgba(233,196,106,0.10) 0%, transparent 60%),
+      linear-gradient(160deg, #1a3d2b 0%, #0d2818 50%, #1a3d2b 100%);
+    z-index: 0;
+  }
+
+  .leaf-pattern {
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2352b788' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 24px 16px 80px;
+  }
+
+  /* HEADER */
+  header {
+    text-align: center;
+    padding: 32px 0 28px;
+  }
+
+  .logo-icon {
+    width: 64px;
+    height: 64px;
+    background: linear-gradient(135deg, var(--green-light), var(--amber));
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 14px;
+    font-size: 32px;
+  }
+
+  header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(26px, 6vw, 36px);
+    font-weight: 600;
+    color: var(--cream);
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+  }
+
+  header p {
+    font-size: 14px;
+    color: rgba(216,243,220,0.65);
+    font-weight: 300;
+    letter-spacing: 0.3px;
+  }
+
+  /* TABS */
+  .tab-bar {
+    display: flex;
+    background: rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 4px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(82,183,136,0.18);
+  }
+
+  .tab-btn {
+    flex: 1;
+    padding: 10px 8px;
+    border: none;
+    background: transparent;
+    color: rgba(216,243,220,0.55);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.22s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .tab-btn.active {
+    background: var(--green-light);
+    color: var(--white);
+    box-shadow: 0 2px 12px rgba(82,183,136,0.35);
+  }
+
+  .tab-btn svg { width: 18px; height: 18px; }
+
+  /* PANELS */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* UPLOAD ZONE */
+  .upload-zone {
+    border: 2px dashed rgba(82,183,136,0.4);
+    border-radius: var(--radius);
+    background: rgba(255,255,255,0.05);
+    padding: 40px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.22s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--green-light);
+    background: rgba(82,183,136,0.10);
+  }
+
+  .upload-zone input[type=file] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .upload-icon {
+    width: 56px;
+    height: 56px;
+    background: rgba(82,183,136,0.15);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 14px;
+    color: var(--green-light);
+  }
+
+  .upload-zone p { color: rgba(216,243,220,0.75); font-size: 15px; margin-bottom: 4px; }
+  .upload-zone span { font-size: 12px; color: rgba(216,243,220,0.4); }
+
+  /* PREVIEW IMAGE */
+  .img-preview {
+    width: 100%;
+    max-height: 300px;
+    object-fit: cover;
+    border-radius: var(--radius);
+    display: none;
+    margin-bottom: 16px;
+  }
+
+  .img-preview.show { display: block; }
+
+  /* CAMERA */
+  .camera-wrapper {
+    position: relative;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: #000;
+    aspect-ratio: 4/3;
+    margin-bottom: 16px;
+  }
+
+  #videoEl {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .camera-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .scan-frame {
+    width: 200px;
+    height: 200px;
+    border: 2px solid rgba(82,183,136,0.7);
+    border-radius: 16px;
+    position: relative;
+  }
+
+  .scan-frame::before, .scan-frame::after {
+    content: '';
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    border-color: var(--green-light);
+    border-style: solid;
+  }
+
+  .scan-frame::before { top: -2px; left: -2px; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+  .scan-frame::after { bottom: -2px; right: -2px; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+
+  .scan-line {
+    position: absolute;
+    left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--green-light), transparent);
+    animation: scanMove 2s ease-in-out infinite;
+    top: 0;
+  }
+
+  @keyframes scanMove {
+    0% { top: 0; }
+    50% { top: calc(100% - 2px); }
+    100% { top: 0; }
+  }
+
+  canvas#snapCanvas { display: none; }
+
+  /* BUTTONS */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 13px 24px;
+    border-radius: 12px;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: var(--green-light);
+    color: var(--white);
+    width: 100%;
+    justify-content: center;
+    font-size: 16px;
+    padding: 15px;
+  }
+
+  .btn-primary:hover { background: #3da876; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .btn-secondary {
+    background: rgba(255,255,255,0.1);
+    color: var(--cream);
+    border: 1px solid rgba(82,183,136,0.3);
+    flex: 1;
+    justify-content: center;
+  }
+
+  .btn-secondary:hover { background: rgba(82,183,136,0.2); }
+
+  .btn-row { display: flex; gap: 10px; margin-bottom: 16px; }
+
+  /* LOADING */
+  .loading-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 40px 24px;
+    text-align: center;
+    display: none;
+  }
+
+  .loading-card.show { display: block; }
+
+  .spinner {
+    width: 48px;
+    height: 48px;
+    border: 3px solid var(--green-pale);
+    border-top-color: var(--green-mid);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-card p { color: var(--text-muted); font-size: 15px; }
+  .loading-card .loading-tip { font-size: 13px; color: var(--green-mid); margin-top: 8px; font-style: italic; }
+
+  /* RESULT CARD */
+  .result-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    display: none;
+    margin-top: 16px;
+  }
+
+  .result-card.show { display: block; }
+
+  .result-header {
+    background: linear-gradient(135deg, var(--green-deep), var(--green-mid));
+    padding: 24px;
+    color: white;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .crop-badge {
+    width: 52px;
+    height: 52px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    flex-shrink: 0;
+  }
+
+  .result-header h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .result-header .sci-name {
+    font-size: 13px;
+    font-style: italic;
+    opacity: 0.75;
+    margin-bottom: 8px;
+  }
+
+  .confidence-bar {
+    height: 6px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 3px;
+    overflow: hidden;
+    width: 160px;
+    margin-top: 4px;
+  }
+
+  .confidence-fill {
+    height: 100%;
+    background: var(--amber);
+    border-radius: 3px;
+    transition: width 0.8s ease;
+  }
+
+  .confidence-label {
+    font-size: 12px;
+    opacity: 0.8;
+    margin-top: 4px;
+  }
+
+  .result-body { padding: 20px; }
+
+  /* INFO GRID */
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 400px) {
+    .info-grid { grid-template-columns: 1fr; }
+  }
+
+  .info-tile {
+    background: var(--green-pale);
+    border-radius: 12px;
+    padding: 14px;
+  }
+
+  .info-tile .tile-icon {
+    font-size: 20px;
+    margin-bottom: 6px;
+    display: block;
+  }
+
+  .info-tile .tile-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--green-mid);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 4px;
+  }
+
+  .info-tile .tile-value {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--green-deep);
+    line-height: 1.4;
+  }
+
+  /* FERTILIZER BAR */
+  .fertilizer-section {
+    background: #fff8ec;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 12px;
+    border-left: 3px solid var(--amber);
+  }
+
+  .fertilizer-section .sec-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--amber-dark);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .npk-bars { display: flex; flex-direction: column; gap: 8px; }
+
+  .npk-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .npk-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    width: 90px;
+    flex-shrink: 0;
+  }
+
+  .npk-track {
+    flex: 1;
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .npk-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 1s ease;
+  }
+
+  .npk-fill.n { background: #4caf50; }
+  .npk-fill.p { background: #ff9800; }
+  .npk-fill.k { background: #2196f3; }
+
+  .npk-val {
+    font-size: 12px;
+    color: var(--text-muted);
+    width: 32px;
+    text-align: right;
+  }
+
+  .fert-rec {
+    font-size: 13px;
+    color: var(--brown);
+    margin-top: 10px;
+    line-height: 1.5;
+  }
+
+  /* MEDICINAL */
+  .medicinal-section {
+    background: #f0fdf4;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 12px;
+    border-left: 3px solid var(--green-light);
+  }
+
+  .medicinal-section .sec-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--green-mid);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .med-tag {
+    display: inline-block;
+    background: rgba(82,183,136,0.15);
+    color: var(--green-deep);
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    margin: 3px;
+    font-weight: 500;
+  }
+
+  .med-desc {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 10px;
+    line-height: 1.5;
+  }
+
+  /* GROWING TIMELINE */
+  .timeline-section {
+    background: #f8faff;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 12px;
+    border-left: 3px solid #6b9bfa;
+  }
+
+  .timeline-section .sec-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: #3b6bdb;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 10px;
+  }
+
+  .timeline-steps {
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .t-step {
+    flex: 1;
+    min-width: 70px;
+    text-align: center;
+    position: relative;
+  }
+
+  .t-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 14px;
+    right: -1px;
+    width: 50%;
+    height: 2px;
+    background: #c7d7fd;
+    z-index: 0;
+  }
+
+  .t-step:not(:first-child)::before {
+    content: '';
+    position: absolute;
+    top: 14px;
+    left: -1px;
+    width: 50%;
+    height: 2px;
+    background: #c7d7fd;
+    z-index: 0;
+  }
+
+  .t-dot {
+    width: 28px;
+    height: 28px;
+    background: #6b9bfa;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 6px;
+    font-size: 14px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .t-label { font-size: 11px; color: #3b6bdb; font-weight: 500; }
+  .t-dur { font-size: 10px; color: var(--text-muted); }
+
+  /* ERROR */
+  .error-card {
+    background: #fff1f2;
+    border-radius: var(--radius);
+    padding: 24px;
+    text-align: center;
+    border: 1px solid #fecdd3;
+    display: none;
+    margin-top: 16px;
+  }
+
+  .error-card.show { display: block; }
+  .error-card p { color: #e11d48; font-size: 15px; }
+  .error-card .err-sub { font-size: 13px; color: var(--text-muted); margin-top: 6px; }
+
+  /* CAMERA STATUS */
+  .cam-status {
+    text-align: center;
+    padding: 20px;
+    color: rgba(216,243,220,0.6);
+    font-size: 14px;
+  }
+
+  .cam-controls { display: flex; gap: 10px; flex-wrap: wrap; }
+  .cam-controls .btn { flex: 1; min-width: 120px; }
+
+  /* KNOWN CROPS INFO */
+  .known-crops {
+    background: rgba(255,255,255,0.05);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(82,183,136,0.15);
+  }
+
+  .known-crops p {
+    font-size: 12px;
+    color: rgba(216,243,220,0.5);
+    margin-bottom: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+  }
+
+  .crop-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .crop-chip {
+    background: rgba(82,183,136,0.15);
+    border: 1px solid rgba(82,183,136,0.3);
+    color: var(--green-pale);
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  /* RESET */
+  .reset-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid rgba(82,183,136,0.3);
+    color: rgba(216,243,220,0.6);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 12px;
+    transition: all 0.2s;
+  }
+
+  .reset-btn:hover { background: rgba(82,183,136,0.1); color: var(--cream); }
+
+  @media (max-width: 480px) {
+    .result-header { flex-direction: column; }
+    .info-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="leaf-pattern"></div>
+
+<div class="container">
+  <header>
+    <div class="logo-icon">🌿</div>
+    <h1>CropLens</h1>
+    <p>AI-powered crop & plant identification</p>
+  </header>
+
+  <div class="known-crops">
+    <p>Optimized for</p>
+    <div class="crop-chips">
+      <span class="crop-chip">🌱 Black Cumin (Nigella sativa)</span>
+      <span class="crop-chip">🌸 Sweet Pea (Lathyrus odoratus)</span>
+      <span class="crop-chip">🧅 Allium Cepa (Onion)</span>
+    </div>
+  </div>
+
+  <!-- TAB BAR -->
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="upload" onclick="switchTab('upload')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Upload Photo
+    </button>
+    <button class="tab-btn" data-tab="camera" onclick="switchTab('camera')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      Live Camera
+    </button>
+  </div>
+
+  <!-- UPLOAD PANEL -->
+  <div class="panel active" id="panel-upload">
+    <img id="previewImg" class="img-preview" alt="Uploaded crop" />
+
+    <div class="upload-zone" id="uploadZone">
+      <input type="file" id="fileInput" accept="image/*" onchange="handleFile(event)" />
+      <div class="upload-icon">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </div>
+      <p>Drop your plant photo here</p>
+      <span>JPG, PNG, WEBP supported</span>
+    </div>
+
+    <div style="margin-top: 14px;">
+      <button class="btn btn-primary" id="analyzeUploadBtn" onclick="analyzeImage('upload')" disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Identify Crop
+      </button>
+    </div>
+  </div>
+
+  <!-- CAMERA PANEL -->
+  <div class="panel" id="panel-camera">
+    <div class="camera-wrapper" id="cameraWrapper">
+      <div class="cam-status" id="camStatus">Camera not started yet</div>
+      <video id="videoEl" autoplay playsinline muted style="display:none;"></video>
+      <div class="camera-overlay" id="camOverlay" style="display:none;">
+        <div class="scan-frame">
+          <div class="scan-line"></div>
+        </div>
+      </div>
+    </div>
+
+    <canvas id="snapCanvas"></canvas>
+    <img id="snapPreview" class="img-preview" alt="Captured photo" />
+
+    <div class="cam-controls">
+      <button class="btn btn-secondary" id="startCamBtn" onclick="startCamera()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Start Camera
+      </button>
+      <button class="btn btn-secondary" id="snapBtn" onclick="takeSnapshot()" disabled>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        Capture
+      </button>
+    </div>
+
+    <div style="margin-top: 12px;">
+      <button class="btn btn-primary" id="analyzeCamBtn" onclick="analyzeImage('camera')" disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Identify Captured Photo
+      </button>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div class="loading-card" id="loadingCard">
+    <div class="spinner"></div>
+    <p>Analyzing your plant...</p>
+    <p class="loading-tip">Checking leaf patterns, colors & structure</p>
+  </div>
+
+  <!-- ERROR -->
+  <div class="error-card" id="errorCard">
+    <p>⚠️ Could not analyze the image</p>
+    <p class="err-sub" id="errorMsg">Please try again with a clearer photo.</p>
+  </div>
+
+  <!-- RESULT -->
+  <div class="result-card" id="resultCard">
+    <div class="result-header">
+      <div class="crop-badge" id="cropEmoji">🌱</div>
+      <div>
+        <h2 id="cropName">—</h2>
+        <p class="sci-name" id="sciName">—</p>
+        <div class="confidence-bar">
+          <div class="confidence-fill" id="confidenceFill" style="width:0%"></div>
+        </div>
+        <p class="confidence-label" id="confidenceLabel">Confidence: —</p>
+      </div>
+    </div>
+
+    <div class="result-body">
+
+      <!-- INFO GRID -->
+      <div class="info-grid">
+        <div class="info-tile">
+          <span class="tile-icon">🗓️</span>
+          <div class="tile-label">Best Growing Season</div>
+          <div class="tile-value" id="growingSeason">—</div>
+        </div>
+        <div class="info-tile">
+          <span class="tile-icon">💧</span>
+          <div class="tile-label">Water Needs</div>
+          <div class="tile-value" id="waterNeeds">—</div>
+        </div>
+        <div class="info-tile">
+          <span class="tile-icon">⏱️</span>
+          <div class="tile-label">Time to Harvest</div>
+          <div class="tile-value" id="timeNeeded">—</div>
+        </div>
+        <div class="info-tile">
+          <span class="tile-icon">🌡️</span>
+          <div class="tile-label">Ideal Temperature</div>
+          <div class="tile-value" id="temperature">—</div>
+        </div>
+      </div>
+
+      <!-- FERTILIZER BAR -->
+      <div class="fertilizer-section">
+        <div class="sec-title">🧪 Fertilizer Recommendation</div>
+        <div class="npk-bars">
+          <div class="npk-row">
+            <span class="npk-label">Nitrogen (N)</span>
+            <div class="npk-track"><div class="npk-fill n" id="nBar" style="width:0%"></div></div>
+            <span class="npk-val" id="nVal">—</span>
+          </div>
+          <div class="npk-row">
+            <span class="npk-label">Phosphorus (P)</span>
+            <div class="npk-track"><div class="npk-fill p" id="pBar" style="width:0%"></div></div>
+            <span class="npk-val" id="pVal">—</span>
+          </div>
+          <div class="npk-row">
+            <span class="npk-label">Potassium (K)</span>
+            <div class="npk-track"><div class="npk-fill k" id="kBar" style="width:0%"></div></div>
+            <span class="npk-val" id="kVal">—</span>
+          </div>
+        </div>
+        <p class="fert-rec" id="fertRec">—</p>
+      </div>
+
+      <!-- GROWING TIMELINE -->
+      <div class="timeline-section">
+        <div class="sec-title">📅 Growing Timeline</div>
+        <div class="timeline-steps" id="timelineSteps">
+          <!-- filled by JS -->
+        </div>
+      </div>
+
+      <!-- MEDICINAL -->
+      <div class="medicinal-section" id="medicinalSection">
+        <div class="sec-title">💊 Medicinal Properties</div>
+        <div id="medTags"></div>
+        <p class="med-desc" id="medDesc">—</p>
+      </div>
+
+    </div>
+  </div>
+
+  <button class="reset-btn" id="resetBtn" onclick="resetAll()" style="display:none;">
+    ↩ Analyze another plant
+  </button>
+
+</div>
+
+<script>
+let uploadedImageBase64 = null;
+let capturedImageBase64 = null;
+let cameraStream = null;
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`panel-${tab}`).classList.add('active');
+  hideResults();
+}
+
+function hideResults() {
+  document.getElementById('loadingCard').classList.remove('show');
+  document.getElementById('errorCard').classList.remove('show');
+  document.getElementById('resultCard').classList.remove('show');
+  document.getElementById('resetBtn').style.display = 'none';
+}
+
+// UPLOAD
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const dataUrl = ev.target.result;
+    uploadedImageBase64 = dataUrl.split(',')[1];
+    const preview = document.getElementById('previewImg');
+    preview.src = dataUrl;
+    preview.classList.add('show');
+    document.getElementById('uploadZone').style.display = 'none';
+    document.getElementById('analyzeUploadBtn').disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+// DRAG OVER
+const uploadZone = document.getElementById('uploadZone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    const fakeEvent = { target: { files: [file] } };
+    handleFile(fakeEvent);
+  }
+});
+
+// CAMERA
+async function startCamera() {
+  try {
+    const constraints = {
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      }
+    };
+    cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+    const video = document.getElementById('videoEl');
+    video.srcObject = cameraStream;
+    video.style.display = 'block';
+    document.getElementById('camStatus').style.display = 'none';
+    document.getElementById('camOverlay').style.display = 'flex';
+    document.getElementById('snapBtn').disabled = false;
+    document.getElementById('startCamBtn').disabled = true;
+  } catch (err) {
+    document.getElementById('camStatus').textContent = 'Camera access denied. Please allow camera permissions.';
+  }
+}
+
+function takeSnapshot() {
+  const video = document.getElementById('videoEl');
+  const canvas = document.getElementById('snapCanvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+  capturedImageBase64 = dataUrl.split(',')[1];
+
+  const preview = document.getElementById('snapPreview');
+  preview.src = dataUrl;
+  preview.classList.add('show');
+  document.getElementById('analyzeCamBtn').disabled = false;
+
+  // Stop camera
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+  video.style.display = 'none';
+  document.getElementById('camOverlay').style.display = 'none';
+  document.getElementById('camStatus').style.display = 'none';
+}
+
+// ANALYZE
+async function analyzeImage(source) {
+  const base64 = source === 'upload' ? uploadedImageBase64 : capturedImageBase64;
+  if (!base64) return;
+
+  hideResults();
+  document.getElementById('loadingCard').classList.add('show');
+  document.getElementById(`analyze${source === 'upload' ? 'Upload' : 'Cam'}Btn`).disabled = true;
+
+  const systemPrompt = `You are an expert botanist and agricultural advisor specializing in crop identification and cultivation guidance. You have deep knowledge of:
+1. Black Cumin (Nigella sativa) - a medicinal herb with black seeds
+2. Sweet Pea (Lathyrus odoratus) - an ornamental flowering plant
+3. Allium Cepa (Onion) - a widely cultivated bulb vegetable
+
+When given a plant image, identify the crop and return ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
+{
+  "cropName": "Common name",
+  "sciName": "Scientific name",
+  "emoji": "single relevant emoji",
+  "confidence": 85,
+  "growingSeason": "Month range e.g. March to June",
+  "waterNeeds": "e.g. Moderate - 300-500mm/season",
+  "timeNeeded": "e.g. 90-120 days",
+  "temperature": "e.g. 15-25°C optimal",
+  "npk": { "n": 40, "p": 60, "k": 50 },
+  "fertRec": "Detailed fertilizer recommendation 1-2 sentences",
+  "timeline": [
+    {"emoji":"🌱","label":"Sow","dur":"Week 1"},
+    {"emoji":"🌿","label":"Germinate","dur":"Week 2-3"},
+    {"emoji":"🌸","label":"Flower","dur":"Week 6-8"},
+    {"emoji":"🌾","label":"Harvest","dur":"Week 12-16"}
+  ],
+  "medicinalTags": ["tag1", "tag2", "tag3"],
+  "medicinalDesc": "Detailed description of medicinal uses and properties.",
+  "hasMedicinal": true
+}
+NPK values are percentages 0-100 representing relative needs. If the plant in the image doesn't match the three known crops but is still a plant, identify it generically and provide accurate data. If confidence is below 40, still try your best.`;
+
+  const userPrompt = "Identify this plant/crop from the image and provide detailed agricultural and medicinal information in the exact JSON format specified.";
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64 } },
+            { type: "text", text: userPrompt }
+          ]
+        }]
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error?.message || 'API error');
+
+    const text = data.content.map(i => i.text || '').join('');
+    const clean = text.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(clean);
+    renderResult(result);
+
+  } catch (err) {
+    document.getElementById('loadingCard').classList.remove('show');
+    document.getElementById('errorCard').classList.add('show');
+    document.getElementById('errorMsg').textContent = err.message || 'Failed to analyze. Please try again.';
+  }
+
+  document.getElementById(`analyze${source === 'upload' ? 'Upload' : 'Cam'}Btn`).disabled = false;
+}
+
+function renderResult(r) {
+  document.getElementById('loadingCard').classList.remove('show');
+  document.getElementById('resultCard').classList.add('show');
+  document.getElementById('resetBtn').style.display = 'flex';
+
+  document.getElementById('cropEmoji').textContent = r.emoji || '🌱';
+  document.getElementById('cropName').textContent = r.cropName || 'Unknown Plant';
+  document.getElementById('sciName').textContent = r.sciName || '';
+  document.getElementById('confidenceFill').style.width = (r.confidence || 0) + '%';
+  document.getElementById('confidenceLabel').textContent = `Confidence: ${r.confidence || 0}%`;
+
+  document.getElementById('growingSeason').textContent = r.growingSeason || '—';
+  document.getElementById('waterNeeds').textContent = r.waterNeeds || '—';
+  document.getElementById('timeNeeded').textContent = r.timeNeeded || '—';
+  document.getElementById('temperature').textContent = r.temperature || '—';
+
+  // NPK
+  const npk = r.npk || { n: 0, p: 0, k: 0 };
+  setTimeout(() => {
+    document.getElementById('nBar').style.width = npk.n + '%';
+    document.getElementById('pBar').style.width = npk.p + '%';
+    document.getElementById('kBar').style.width = npk.k + '%';
+  }, 100);
+  document.getElementById('nVal').textContent = npk.n + '%';
+  document.getElementById('pVal').textContent = npk.p + '%';
+  document.getElementById('kVal').textContent = npk.k + '%';
+  document.getElementById('fertRec').textContent = r.fertRec || '—';
+
+  // Timeline
+  const container = document.getElementById('timelineSteps');
+  container.innerHTML = '';
+  (r.timeline || []).forEach(step => {
+    const div = document.createElement('div');
+    div.className = 't-step';
+    div.innerHTML = `<div class="t-dot">${step.emoji}</div><div class="t-label">${step.label}</div><div class="t-dur">${step.dur}</div>`;
+    container.appendChild(div);
+  });
+
+  // Medicinal
+  const medSection = document.getElementById('medicinalSection');
+  if (r.hasMedicinal) {
+    medSection.style.display = 'block';
+    const tags = document.getElementById('medTags');
+    tags.innerHTML = (r.medicinalTags || []).map(t => `<span class="med-tag">${t}</span>`).join('');
+    document.getElementById('medDesc').textContent = r.medicinalDesc || '—';
+  } else {
+    medSection.style.display = 'none';
+  }
+
+  // Scroll to result
+  document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function resetAll() {
+  uploadedImageBase64 = null;
+  capturedImageBase64 = null;
+  if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+
+  document.getElementById('previewImg').classList.remove('show');
+  document.getElementById('uploadZone').style.display = 'block';
+  document.getElementById('fileInput').value = '';
+  document.getElementById('analyzeUploadBtn').disabled = true;
+
+  document.getElementById('videoEl').style.display = 'none';
+  document.getElementById('camOverlay').style.display = 'none';
+  document.getElementById('camStatus').style.display = 'block';
+  document.getElementById('camStatus').textContent = 'Camera not started yet';
+  document.getElementById('snapPreview').classList.remove('show');
+  document.getElementById('snapBtn').disabled = true;
+  document.getElementById('analyzeCamBtn').disabled = true;
+  document.getElementById('startCamBtn').disabled = false;
+
+  hideResults();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
