@@ -24,7 +24,7 @@ from flask_cors import CORS
 from pathlib import Path
 
 # ── Config ────────────────────────────────────────────────────────────────────
-API_KEY    = os.environ.get("GEMINI_API_KEY", "AIzaSyDN9_4YKNuBUO8TfSDK09Q9KJl9rqIfjU8")
+API_KEY    = os.environ.get("GEMINI_API_KEY", "YOUR API HERE")
 MODEL      = "gemini-1.5-flash"          # free tier model
 STATIC_DIR = Path(__file__).parent       # index.html lives in the same folder
 
