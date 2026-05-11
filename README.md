@@ -33,6 +33,11 @@ This project focuses on building a robust flower dataset (3 classes) and applyin
 
 4.Provide a reproducible pipeline for research use.
 
+## Preview
+
+![Home](assets/home.png)
+
+
 ## Methodology:
 ### 1. Data Preprocessing
 Background removal using OpenCV / rembg;
