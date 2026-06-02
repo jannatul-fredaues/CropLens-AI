@@ -1,4 +1,4 @@
-# Flower_Recognition
+# CropLens - AI
 ## Flower Classification & Dataset Pipeline (3-Class)
 
 An end-to-end Computer Vision project for flower classification and dataset engineering, designed for research and real-world AI applications.
