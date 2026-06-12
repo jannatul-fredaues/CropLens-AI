@@ -1,30 +1,3 @@
-"""
-CropLens — Flask Backend
-========================
-Serves the HTML frontend and exposes a /analyze endpoint.
-
-TWO MODES:
-  1. MODEL MODE  — uses your trained .h5/.keras model for the 3-crop
-                   classification, then calls Claude to enrich the result
-                   with agronomic / medicinal details.
-  2. CLAUDE-ONLY — falls back to pure Claude vision when no model is loaded
-                   (active while your dataset is still training).
-
-HOW TO SWITCH:
-  Set MODEL_PATH in config below (or via env var CROPLENS_MODEL_PATH).
-  If the path doesn't exist the app auto-falls back to Claude-only mode.
-
-SETUP:
-  pip install flask flask-cors anthropic pillow numpy
-  # after model trains:
-  pip install tensorflow   (or keras)
-
-RUN:
-  export ANTHROPIC_API_KEY="sk-ant-..."
-  python app.py
-  # visit http://localhost:5000
-"""
-
 import os
 import io
 import base64
