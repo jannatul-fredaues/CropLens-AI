@@ -17,12 +17,6 @@ This project focuses on building a robust flower dataset (3 classes) and applyin
 
 4.Model training & evaluation.
 
-## Raw Data:
-1.Allium Cepe: https://drive.google.com/drive/folders/1d9F3htBxrtlqWeomJWIJFot0q6asB_j0?usp=drive_link
-
-2.Black Cumin: https://drive.google.com/drive/folders/15C_03C-YlRVS-agxU-LE5u2-vQU0_XFD?usp=drive_link
-
-3.Sweet pea: https://drive.google.com/drive/folders/1M1r9JZeStBU156AkSWapIuNe6sJKrJrC?usp=drive_link
 
 ## Objectives:
 1.Build a high-quality flower dataset;
