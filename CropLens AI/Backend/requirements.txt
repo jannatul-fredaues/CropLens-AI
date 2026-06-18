@@ -1,7 +1,5 @@
-flask>=3.0
-flask-cors>=4.0
-anthropic>=0.30
-pillow>=10.0
-numpy>=1.26
-# Uncomment after your model finishes training:
-# tensorflow>=2.16   # or just: keras>=3.0
+flask>=3.0.0
+flask-cors>=4.0.0
+tensorflow>=2.15.0
+pillow>=10.0.0
+numpy>=1.24.0
